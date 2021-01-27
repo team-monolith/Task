@@ -8,22 +8,19 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.FragmentTransaction
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.io.BufferedReader
 import java.io.File
 
 class MainActivity : AppCompatActivity() {
     /*宣言*/
-    var main_flg = true;
-    var main_text = "" //メインリスト
+    var folder_name =""
+    var disp_text = "" //メインリスト
     var sub_text = "" //フォルダ内データ
     var task_txt = "" //タスクデータ
     var folder_txt = "" //フォルダーデータ
     private var listView: ListView? = null //リストビューの宣言
     var btn_flg = false;
-    var transaction: FragmentTransaction = supportFragmentManager.beginTransaction()
-    var list_fragment: ListFragment = ListFragment()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,11 +32,9 @@ class MainActivity : AppCompatActivity() {
         task_add_btn.setVisibility(View.INVISIBLE)
         folder_add_btn.setVisibility(View.INVISIBLE)
             if(read_txt("CREATE_CHECK.txt") == "OK"){
-                main_text = read_txt("MAIN_TEXT.txt")
-                if(main_flg){
-                    if(main_text != ""){
-                        list(main_text,"LOAD")
-                    }
+                disp_text = read_txt("MAIN_TEXT.txt")
+                if(disp_text != ""){
+                    list(disp_text,"LOAD")
                 }
             }else{
                 write_txt("MAIN_TEXT.txt","")
@@ -73,9 +68,6 @@ class MainActivity : AppCompatActivity() {
 
         list("","INFO")
 
-
-        /*データが追加画面から渡された場合の処理*/
-
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -91,6 +83,10 @@ class MainActivity : AppCompatActivity() {
         when (item.getItemId()) {
             //作成ボタンを押したとき
             R.id.home -> {
+                folder_name = ""
+                disp_text = read_txt("MAIN_TEXT.txt")
+                list(disp_text,"LOAD")
+                Toast.makeText(applicationContext, "ホームに戻りました", Toast.LENGTH_SHORT).show()
                 return true
             }
             //削除ボタンを押したとき
@@ -101,6 +97,8 @@ class MainActivity : AppCompatActivity() {
             else -> return super.onOptionsItemSelected(item)
         }
     }
+
+
 
     /*リスト関連*/
     fun list(text: String, type:String) {
@@ -116,14 +114,22 @@ class MainActivity : AppCompatActivity() {
         }else if(type=="INFO"){
             listView?.setOnItemClickListener { adapterView, _, position, _ ->
                 val read_name = adapterView.getItemAtPosition(position) as String
+                if(!read_name.startsWith("📚")){
+                    Toast.makeText(applicationContext, "フォルダ", Toast.LENGTH_SHORT).show()
+                    val check_name = read_name.drop(3)
+                    if(check_folder(check_name)){
+                        folder_name = check_name + "_TEXT.txt"
+                        disp_text = read_txt(folder_name)
+                        if(disp_text != ""){
+                            list(disp_text,"RESET")
+                        }else{
+                            list("","RESET")
+                        }
 
+                    }
+                }
             }
         }
-    }
-
-    /*フォルダーかファイルかを格納*/
-    fun type(type:String,name:String){
-        val txt_name = name +"_" + String  + ".txt"
     }
 
     /*タスク情報の作成*/
@@ -131,13 +137,52 @@ class MainActivity : AppCompatActivity() {
         if(type == "TXT_READ") { //読み込み
             task_txt = read_txt("TASK_TEXT.txt")
         }else if(type == "WRITE"){
-            if(task_txt != "") {
-                task_txt += "," + text
+            if(folder_name == ""){
+                if(task_txt != "") {
+                    if(disp_text != ""){
+                        disp_text += ",📚 " + text
+                    }else{
+                        disp_text += "📚 " + text
+                    }
+
+                    task_txt += "," + text
+                }else{
+                    if(disp_text != ""){
+                        disp_text += ",📚 " + text
+                    }else{
+                        disp_text += "📚 " + text
+                    }
+                    task_txt += text
+                }
+                write_txt("TASK_TEXT.txt",task_txt)
             }else{
-                task_txt += text
+                if(disp_text != ""){
+                    disp_text += ",📚 " + text
+                }else{
+                    disp_text += "📚 " + text
+                }
+                write_txt(folder_name,disp_text)
             }
-            write_txt("FOLDER_TEXT.txt",folder_txt)
+
         }else if(type == "SEARCH"){
+            task_txt = read_txt("TASK_TEXT.txt")
+            var search_flg = false
+            if(task_txt != ""){
+                val arr = task_txt.split(",")
+                for(i in 0..arr.size){
+                    if(text == arr[i]){
+                        search_flg = true
+                        break;
+                    }
+                }
+            }
+
+            if(!search_flg){
+                task(text,"WRITE")
+                Toast.makeText(applicationContext, text + "タスクを作成しました", Toast.LENGTH_SHORT).show()
+            }else{
+                Toast.makeText(applicationContext, "同じ名前のタスクが登録済です", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -147,14 +192,57 @@ class MainActivity : AppCompatActivity() {
             folder_txt = read_txt("FOLDER_TEXT.txt")
         }else if(type == "WRITE"){
             if(folder_txt != "") {
+                if(disp_text != ""){
+                    disp_text += ",📁 " + text
+                }else{
+                    disp_text += "📁 " + text
+                }
                 folder_txt += "," + text
             }else{
+                if(disp_text != ""){
+                    disp_text += ",📁 " + text
+                }else{
+                    disp_text += "📁 " + text
+                }
                 folder_txt += text
             }
             write_txt("FOLDER_TEXT.txt",folder_txt)
+            write_txt( text + "_TEXT.txt","")
         }else if(type == "SEARCH"){
+            folder_txt = read_txt("FOLDER_TEXT.txt")
+            var search_flg = false
+            if(folder_txt != ""){
+                val arr = folder_txt.split(",")
+                for(i in 0..arr.size){
+                    if(text == arr[i]){
+                        search_flg = true
+                        break;
+                    }
+                }
+            }
+
+            if(!search_flg){
+                folder(text,"WRITE")
+                Toast.makeText(applicationContext, text + "フォルダを作成しました", Toast.LENGTH_SHORT).show()
+            }else{
+                Toast.makeText(applicationContext, "同じ名前のフォルダが登録済です", Toast.LENGTH_SHORT).show()
+            }
         }
 
+    }
+
+    fun check_folder(check_name:String):Boolean{
+        folder_txt = read_txt("FOLDER_TEXT.txt")
+        var search_flg = false
+        if(folder_txt != ""){
+            val arr = folder_txt.split(",")
+            for(i in 0..arr.size){
+                if(check_name == arr[i]){
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     /*txtファイルで端末内に書き込む*/
@@ -191,29 +279,18 @@ class MainActivity : AppCompatActivity() {
             dialog.setPositiveButton("OK", DialogInterface.OnClickListener { _, _ ->
                 // OKボタン押したときの処理
                 val work = myedit.getText().toString()
-                val check_work = Regex(work)
                 if(type){
                     //タスクとして追加する
-                        if(main_text != "") {
-                            main_text += ",📚 " + work
-                        }else{
-                            main_text += "📚 " + work
-                        }
-
+                        task(work,"SEARCH")
                 }else{
                     //フォルダとして追加
-                        if(main_text != ""){
-                            main_text += ",📁 " + work
-                        }else{
-                            main_text += "📁 " + work
-                        }
-                        folder(work,"WRITE")
+                        folder(work,"SEARCH")
                 }
 
-                    write_txt("MAIN_TEXT.txt",main_text)
-                    list(main_text,"LOAD")
-                    transaction.replace(R.id.include, list_fragment)
-                    Toast.makeText(applicationContext, submit_message, Toast.LENGTH_SHORT).show() //完了メッセージの表示
+                    write_txt("MAIN_TEXT.txt",disp_text)
+                    list(disp_text,"LOAD")
+
+                     //完了メッセージの表示
             })
             dialog.setNegativeButton("キャンセル",null)
             dialog.show()
@@ -226,9 +303,7 @@ class MainActivity : AppCompatActivity() {
                 .setMessage(dialog_text)
                 .setPositiveButton("OK", { dialog, which ->
                     if(type == "RESET"){
-                        if(main_flg){
                             reset()
-                        }
                     }
                 })
                 .setNegativeButton("キャンセル",null)
@@ -237,12 +312,13 @@ class MainActivity : AppCompatActivity() {
 
     /*すべてのデータをリセットする*/
     fun reset(){
-        main_text = ""
+        disp_text = ""
         sub_text = ""
+        folder_name = ""
         reset_txt("MAIN_TEXT.txt")
         reset_txt("FOLDER_TEXT.txt")
+        reset_txt("TASK_TEXT.txt")
         list("","RESET")
-        transaction.replace(R.id.include, list_fragment)
     }
 
 
